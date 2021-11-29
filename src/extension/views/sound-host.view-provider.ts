@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import * as vscode from 'vscode';
+import { ViewData } from '../../browser/models/view-data.interface';
 import { AsyncObject } from '../../shared/models/async-object';
 import { SoundFile } from '../../shared/models/sound/soundfile.model';
 import { ExtensionContextToken } from '../models/extension-context';
@@ -30,6 +31,14 @@ export class SoundHostViewProvider implements vscode.WebviewViewProvider {
   //#endregion
 
   //#region Public Methods
+  public async sendMetadataUpdate(viewData: ViewData): Promise<void> {
+    const view = await this.view.value;
+		view.webview.postMessage({
+			command: 'updateMetadata',
+      ...viewData
+		});
+	}
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,

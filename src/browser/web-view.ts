@@ -1,4 +1,5 @@
 import { SoundFile } from '../shared/models/sound/soundfile.model';
+import { ViewData } from './models/view-data.interface';
 import { VSCodeApi } from './models/vscode-api.interface';
 import { AudioHostService } from './services/audio-host.service';
 
@@ -77,8 +78,8 @@ function playSound(sound: string) {
         break;
 
       case 'updateMetadata':
-        const { totalShootCount } = e.data;
-        document.querySelector('#counter')!.textContent = totalShootCount
+        const { comboCount } = (e.data as ViewData);
+        document.querySelector('#counter')!.textContent = comboCount.toString();
         break;
     }
   });

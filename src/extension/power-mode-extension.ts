@@ -10,6 +10,10 @@ import { SoundHostViewProvider } from './views/sound-host.view-provider';
 
 @injectable()
 export class PowerModeExtension {
+	//#region Public Static Fields
+	public static IDLE_TIME_MAX: number = 3;
+	//#endregion
+
 	//#region Private Fields
 	private readonly _whitespaceRegex = /\s/g;
 	private readonly _prefixes = ['dist'];
@@ -21,9 +25,26 @@ export class PowerModeExtension {
 	private _totalShootCount: number = 0;
 	private _sequenceShootCount: number = 0;
 	private _gunIndex: number = 1;
+	private _comboCount: number = 0;
+	private _comboResponseTemplates: Array<{ sound: string, minCombo: number;}> = [
+		{ sound: 'quake/firstblood.wav', minCombo: 250 },
+		{ sound: 'quake/holyshit.wav', minCombo: 350 },
+		{ sound: 'quake/ludicrouskill.wav', minCombo: 500 }
+	];
+	private _comboResponses: Array<{ sound: string, minCombo: number; reached: boolean }> = [];
+	public get comboCount(): number {
+		return this._comboCount;
+	}
+	public set comboCount(v: number) {
+		this._comboCount = v;
+		this._soundHostViewProvider
+			.sendMetadataUpdate({
+				comboCount: this._comboCount
+			});
+	}
 
-	private _comboCounter: number = 0;
 	private _soundMap: Map<string, SoundFile> = new Map();
+	private _intervalId?: NodeJS.Timeout | number;
 	//#endregion
 
 	//#region Ctor
@@ -38,6 +59,8 @@ export class PowerModeExtension {
 		/*if (!this.checkForMonkeyPatchExtension()) {
 			return;
 		}*/
+
+		this.startComboChecker();
 
 		this.cacheAndSendSoundsToView();
 
@@ -64,6 +87,24 @@ export class PowerModeExtension {
 	//#endregion
 
 	//#region Private Methods
+	private startComboChecker(): void {
+		this._intervalId = setInterval(() => {
+			if (!this.comboCountValid()) {
+				this.resetCombos();
+			}
+		}, 500);
+	}
+
+	private resetCombos(): void {
+		this.comboCount = 0;
+		this._comboResponses = this._comboResponseTemplates
+			.map(template => ({
+				...template,
+				reached: false
+			}));
+	}
+
+
 	private checkForMonkeyPatchExtension(): boolean {
 		let monkeyPatch = vscode.extensions.getExtension("iocave.monkey-patch");
 
@@ -89,12 +130,13 @@ export class PowerModeExtension {
 			.join('');
 
 		const filteredChangedText = changedText.replace(this._whitespaceRegex, '');
-		console.log(`"${filteredChangedText}"`, `"${changedText}"`);
-		this._comboCounter += filteredChangedText.length;
+
+		this.comboCount += filteredChangedText.length;
 
 		if (filteredChangedText.length > 0) {
-			this.playSound(`shots/laser-gun2.wav`);
+			this.playSound(`shots/laser-gun.wav`);
 			this._hasUsedMagazine = true;
+			this._lastModified = new Date(Date.now());
 		} else if(/^[ \t]+$/g.test(changedText)) {
 			console.log('HIT_NOTHING');
 			// TODO: Find suitable sound file
@@ -105,6 +147,35 @@ export class PowerModeExtension {
 			this.playSound(`shots/reload.wav`);
 			this._hasUsedMagazine = false;
 		}
+
+		if (this.comboCount && this.comboCount % 50 === 0) {
+			const explosions = [
+				'explosion1.wav',
+				'explosion2.wav',
+				'explosion3.wav',
+				'explosion4.wav',
+				'explosion5.wav',
+				'explosion6.wav'
+			];
+
+			const farExplosion = explosions[Math.floor(Math.random()*explosions.length)];
+
+			this.playSound(`shots/${farExplosion}`);
+		}
+
+		const nextResponse = this._comboResponses
+			.find(response => response.minCombo < this.comboCount && !response.reached);
+
+		if (nextResponse) {
+			nextResponse.reached = true;
+			this.playSound(nextResponse.sound);
+		}
+	}
+
+	private comboCountValid() {
+		const milisecondsSinceLastChange = new Date(Date.now()).getTime() - this._lastModified.getTime();
+		const secondsSinceLastChange = Math.ceil(milisecondsSinceLastChange / 1000);
+		return secondsSinceLastChange <= PowerModeExtension.IDLE_TIME_MAX;
 	}
 
 
