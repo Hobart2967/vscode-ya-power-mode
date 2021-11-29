@@ -1,11 +1,12 @@
 import { inject, injectable } from 'inversify';
 import * as vscode from 'vscode';
 import { AsyncObject } from '../../shared/models/async-object';
+import { SoundFile } from '../../shared/models/sound/soundfile.model';
 import { ExtensionContextToken } from '../models/extension-context';
 
 @injectable()
 export class SoundHostViewProvider implements vscode.WebviewViewProvider {
-  //#region Public Static Constants
+	//#region Public Static Constants
   public static readonly viewType: string  = "vscode-ya-power-mode.combo-view";
   //#endregion
 
@@ -20,12 +21,15 @@ export class SoundHostViewProvider implements vscode.WebviewViewProvider {
   }
   //#endregion
 
+  //#region Ctor
   public constructor(
     @inject(ExtensionContextToken) extensionContext: vscode.ExtensionContext) {
 
     this._extensionUri = extensionContext.extensionUri;
   }
+  //#endregion
 
+  //#region Public Methods
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -42,6 +46,19 @@ export class SoundHostViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
   }
+
+  public async sendCachedAudio(sound: string, soundData: SoundFile): Promise<void> {
+		const view = await this.view.value;
+    view.webview.postMessage({
+			command: 'cacheAudio',
+			sound,
+			soundData: {
+				...soundData,
+				waveFile: undefined
+			}
+		})
+	}
+  //#endregion
 
   private getNonce() {
     let text = '';

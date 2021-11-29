@@ -11,13 +11,19 @@ import { SoundHostViewProvider } from './views/sound-host.view-provider';
 @injectable()
 export class PowerModeExtension {
 	//#region Private Fields
+	private readonly _whitespaceRegex = /\s/g;
 	private readonly _prefixes = ['dist'];
 	//#endregion
 
 	//#region Private Fields
+	private _hasUsedMagazine = false;
+	private _lastModified: Date = new Date(Date.now());
 	private _totalShootCount: number = 0;
 	private _sequenceShootCount: number = 0;
 	private _gunIndex: number = 1;
+
+	private _comboCounter: number = 0;
+	private _soundMap: Map<string, SoundFile> = new Map();
 	//#endregion
 
 	//#region Ctor
@@ -29,17 +35,27 @@ export class PowerModeExtension {
 
 	//#region Public Methods
 	public async onInit(): Promise<void> {
-		if (!this.checkForMonkeyPatchExtension()) {
+		/*if (!this.checkForMonkeyPatchExtension()) {
 			return;
-		}
+		}*/
 
-		this.cacheSounds();
+		this.cacheAndSendSoundsToView();
+
 		vscode.workspace.onDidChangeTextDocument(
 			(event) => this.onDidChangeTextDocument(event));
 
 		vscode.window.registerWebviewViewProvider(
 			SoundHostViewProvider.viewType,
 			this._soundHostViewProvider);
+
+		const view = await this._soundHostViewProvider.view.value;
+		view.webview.onDidReceiveMessage(event => {
+			const { command } = event;
+
+			if (command === 'receive-cache') {
+				this.cacheAndSendSoundsToView();
+			}
+		})
 	}
 
 	public deactivate() {
@@ -68,9 +84,31 @@ export class PowerModeExtension {
 	}
 
 	private async onDidChangeTextDocument(event: vscode.TextDocumentChangeEvent): Promise<void> {
-		// gun${this._gunIndex}
-		this.playSound(`shots/laser-gun.wav`);
-		const length = event.contentChanges.reduce((prev, cur) => cur.text.length + prev, 0);
+		const changedText = event.contentChanges
+			.map(change => change.text)
+			.join('');
+
+		const filteredChangedText = changedText.replace(this._whitespaceRegex, '');
+		console.log(`"${filteredChangedText}"`, `"${changedText}"`);
+		this._comboCounter += filteredChangedText.length;
+
+		if (filteredChangedText.length > 0) {
+			this.playSound(`shots/laser-gun2.wav`);
+			this._hasUsedMagazine = true;
+		} else if(/^[ \t]+$/g.test(changedText)) {
+			console.log('HIT_NOTHING');
+			// TODO: Find suitable sound file
+			// Hit nothing sound
+			this._hasUsedMagazine = true;
+		} else if (this._hasUsedMagazine && filteredChangedText.length <= 0) {
+			console.log('RELOAD');
+			this.playSound(`shots/reload.wav`);
+			this._hasUsedMagazine = false;
+		}
+	}
+
+
+	/*	const length = event.contentChanges.reduce((prev, cur) => cur.text.length + prev, 0);
 		this._totalShootCount += length;
 		this._sequenceShootCount += length;
 
@@ -100,11 +138,10 @@ export class PowerModeExtension {
 
 			this._gunIndex++;
 			if (this._gunIndex > 4) {
-
 				this._gunIndex = 1;
 			}
 		}
-	}
+	}*/
 
 	private async playSound(sound: string): Promise<void> {
 		console.log(new Date(Date.now()).toISOString(), 'Playsound in server received');
@@ -118,23 +155,16 @@ export class PowerModeExtension {
 			command: 'play',
 			sound
 		});
-		console.log(new Date(Date.now()).toISOString(), 'Playsound sendt');
 
+		console.log(new Date(Date.now()).toISOString(), 'Playsound sent');
 	}
 
-	private async cacheSoundFile(sound: string, soundData: SoundFile) {
-		const view = await this._soundHostViewProvider.view.value;
-		view.webview.postMessage({
-			command: 'cacheAudio',
-			sound,
-			soundData: {
-				...soundData,
-				waveFile: undefined
-			}
-		})
+	private async sendCachedSoundFile(sound: string) {
+		await this._soundHostViewProvider.view.value;
+		this._soundHostViewProvider.sendCachedAudio(sound, this._soundMap.get(sound)!);
 	}
 
-	private async cacheSounds(): Promise<void> {
+	private async cacheAndSendSoundsToView(): Promise<void> {
 		const soundsPath = path.join(this._context.extensionPath, ...this._prefixes, 'sounds');
 		const sounds = await new Promise<string[]>((resolve, reject) =>
 			glob("**/*.wav", {
@@ -149,18 +179,25 @@ export class PowerModeExtension {
 			}));
 
 		await Promise.all(sounds
+			.filter(sound => !this._soundMap.has(sound))
 			.map(sound =>
 				this
-					.loadSound(sound)
-					.then(soundLoaded => this.cacheSoundFile(sound, soundLoaded))
+					.loadAndCacheSound(sound)
 					.catch(() => null)));
+
+		await Promise.all(
+			Array.from(this._soundMap
+				.keys())
+				.map(sound => this.sendCachedSoundFile(sound)));
 	}
 
-	private async loadSound(sound: string): Promise<SoundFile> {
-		sound = path.join(this._context.extensionPath, ...this._prefixes, 'sounds', sound);
-		const file = await vscode.workspace.fs.readFile(vscode.Uri.parse(sound));
+	private async loadAndCacheSound(sound: string): Promise<SoundFile> {
+		const soundFilePath = path.join(this._context.extensionPath, ...this._prefixes, 'sounds', sound);
+		const file = await vscode.workspace.fs.readFile(vscode.Uri.parse(soundFilePath));
 		const processor = new SoundProcessorService();
-		return processor.prepareSoundFile(file, 0, file.length);
+		const processedSoundFile = await processor.prepareSoundFile(file, 0, file.length);
+		this._soundMap.set(sound, processedSoundFile);
+		return processedSoundFile;
 	}
 	//#endregion
 

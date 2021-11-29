@@ -35,9 +35,13 @@ function cacheAudio(sound: string, soundData: SoundFile) {
   });
 }
 
-function showPlayer(sound: string) {
+function playSound(sound: string) {
   try {
     const cachedAudioFile = cachedAudio.get(sound);
+    if (!cachedAudioFile) {
+      console.warn(`Tried to play non-existend sound ${sound}`);
+      return;
+    }
     // set player ui
     const player = new AudioHostService(ac, cachedAudioFile!.buffer, cachedAudioFile!.file.duration);
     player.play();
@@ -48,15 +52,20 @@ function showPlayer(sound: string) {
 }
 
 (() => {
-  const vscode = acquireVsCodeApi();
   console.log('Booting power mode...');
+
+  const vscode = acquireVsCodeApi();
+  vscode.postMessage({
+    command: 'retrieve-cache'
+  });
+
   window.addEventListener('message', async e => {
     const { command, soundData, isTrusted, sound } = e.data;
 
     switch (command) {
       case 'play':
         console.log(new Date(Date.now()).toISOString(), 'Play event received!');
-        showPlayer(sound);
+        playSound(sound);
         break;
 
       case 'cacheAudio':
