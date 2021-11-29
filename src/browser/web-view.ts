@@ -1,4 +1,4 @@
-import { SoundFile } from '../shared/models/soundfile.model';
+import { SoundFile } from '../shared/models/sound/soundfile.model';
 import { VSCodeApi } from './models/vscode-api.interface';
 import { AudioHostService } from './services/audio-host.service';
 
@@ -65,6 +65,11 @@ function showPlayer(sound: string) {
           console.error('No sound name or sounddata received');
         }
         cacheAudio(sound, soundData);
+        break;
+
+      case 'updateMetadata':
+        const { totalShootCount } = e.data;
+        document.querySelector('#counter')!.textContent = totalShootCount
         break;
     }
   });

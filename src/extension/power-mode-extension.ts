@@ -1,20 +1,29 @@
 import * as glob from 'glob';
+import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import * as vscode from 'vscode'
 import { ExtensionContext } from 'vscode';
-import { SoundFile } from '../shared/models/soundfile.model';
+import { SoundFile } from '../shared/models/sound/soundfile.model';
+import { ExtensionContextToken } from './models/extension-context';
 import { SoundProcessorService } from './services/sound-processor.service';
 import { SoundHostViewProvider } from './views/sound-host.view-provider';
 
+@injectable()
 export class PowerModeExtension {
+	//#region Private Fields
 	private readonly _prefixes = ['dist'];
+	//#endregion
+
+	//#region Private Fields
 	private _totalShootCount: number = 0;
 	private _sequenceShootCount: number = 0;
 	private _gunIndex: number = 1;
-	private _soundHost: SoundHostViewProvider = null as any;
+	//#endregion
 
 	//#region Ctor
-	public constructor(private readonly _context: ExtensionContext) {
+	public constructor(
+		@inject(ExtensionContextToken) private readonly _context: ExtensionContext,
+		@inject(SoundHostViewProvider) private readonly _soundHostViewProvider: SoundHostViewProvider) {
 	}
 	//#endregion
 
@@ -24,15 +33,13 @@ export class PowerModeExtension {
 			return;
 		}
 
-		this._soundHost =  new SoundHostViewProvider(this._context.extensionUri);
-
 		this.cacheSounds();
 		vscode.workspace.onDidChangeTextDocument(
 			(event) => this.onDidChangeTextDocument(event));
 
 		vscode.window.registerWebviewViewProvider(
 			SoundHostViewProvider.viewType,
-			this._soundHost);
+			this._soundHostViewProvider);
 	}
 
 	public deactivate() {
@@ -67,7 +74,7 @@ export class PowerModeExtension {
 		this._totalShootCount += length;
 		this._sequenceShootCount += length;
 
-		const view = await this._soundHost.view.value;
+		const view = await this._soundHostViewProvider.view.value;
 		view.webview.postMessage({
 			command: 'updateMetadata',
 			totalShootCount: this._totalShootCount,
@@ -101,12 +108,12 @@ export class PowerModeExtension {
 
 	private async playSound(sound: string): Promise<void> {
 		console.log(new Date(Date.now()).toISOString(), 'Playsound in server received');
-		if (!this._soundHost.view) {
+		if (!this._soundHostViewProvider.view) {
 			return;
 		}
 
 		console.log(new Date(Date.now()).toISOString(), 'Playsound sending');
-		const view = await this._soundHost.view.value;
+		const view = await this._soundHostViewProvider.view.value;
 		view.webview.postMessage({
 			command: 'play',
 			sound
@@ -116,7 +123,7 @@ export class PowerModeExtension {
 	}
 
 	private async cacheSoundFile(sound: string, soundData: SoundFile) {
-		const view = await this._soundHost.view.value;
+		const view = await this._soundHostViewProvider.view.value;
 		view.webview.postMessage({
 			command: 'cacheAudio',
 			sound,

@@ -1,18 +1,30 @@
+import { inject, injectable } from 'inversify';
 import * as vscode from 'vscode';
 import { AsyncObject } from '../../shared/models/async-object';
+import { ExtensionContextToken } from '../models/extension-context';
 
+@injectable()
 export class SoundHostViewProvider implements vscode.WebviewViewProvider {
+  //#region Public Static Constants
+  public static readonly viewType: string  = "vscode-ya-power-mode.combo-view";
+  //#endregion
 
-  public static readonly viewType = 'vscode-ya-power-mode.combo-view';
+  //#region Private Fields
+  private readonly _extensionUri: vscode.Uri;
+  //#endregion
 
+  //#region Properties
   private _view: AsyncObject<vscode.WebviewView> = new AsyncObject();
   public get view(): AsyncObject<vscode.WebviewView> {
     return this._view;
   }
+  //#endregion
 
   public constructor(
-    private readonly _extensionUri: vscode.Uri,
-  ) { }
+    @inject(ExtensionContextToken) extensionContext: vscode.ExtensionContext) {
+
+    this._extensionUri = extensionContext.extensionUri;
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,

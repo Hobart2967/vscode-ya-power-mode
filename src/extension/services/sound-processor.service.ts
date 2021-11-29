@@ -1,7 +1,9 @@
+import { injectable } from 'inversify';
 import { WaveFile } from 'wavefile';
-import { SoundFile } from '../../shared/models/soundfile.model';
-import { WaveFileEx } from '../../shared/models/wave-file-ex.model';
+import { SoundFile } from '../../shared/models/sound/soundfile.model';
+import { WaveFileEx } from '../../shared/models/sound/wave-file-ex.model';
 
+@injectable()
 export class SoundProcessorService {
   public async prepareSoundFile(buffer: Uint8Array, start: number, end: number): Promise<SoundFile> {
     const waveFile = new WaveFile(buffer) as (WaveFile & WaveFileEx);

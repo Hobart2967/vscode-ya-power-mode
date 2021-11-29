@@ -1,0 +1,1 @@
+export const ExtensionContextToken = 'EXTENSION_CONTEXT';
