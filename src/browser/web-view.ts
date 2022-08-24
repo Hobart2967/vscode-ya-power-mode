@@ -1,9 +1,27 @@
+import { decorate, injectable } from 'inversify';
+decorate(injectable(), HTMLElement);
+decorate(injectable(), Element);
+decorate(injectable(), Node);
+decorate(injectable(), EventTarget);
+
 import { SoundFile } from '../shared/models/sound/soundfile.model';
+import { bootstrap } from '../shared/utilities/bootstrap';
+import { AppModule } from './app-module';
+import { Component } from './decorators/component';
 import { ViewData } from './models/view-data.interface';
-import { VSCodeApi } from './models/vscode-api.interface';
+import { VSCodeApi, VSCodeApiToken } from './models/vscode-api.interface';
 import { AudioHostService } from './services/audio-host.service';
 
 declare var acquireVsCodeApi: () => VSCodeApi;
+
+const container = bootstrap(AppModule, {
+  providers: [
+    { provide: VSCodeApiToken, useValue: acquireVsCodeApi() }
+  ]
+});
+(Component as any).container = container;
+
+
 const ac = new AudioContext({ sampleRate: 44100 });
 const cachedAudio = new Map<string, {
   buffer: AudioBuffer,
@@ -57,7 +75,7 @@ function playSound(sound: string) {
 
   const vscode = acquireVsCodeApi();
   vscode.postMessage({
-    command: 'retrieve-cache'
+    command: 'receive-cache'
   });
 
   window.addEventListener('message', async e => {

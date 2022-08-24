@@ -11,7 +11,7 @@ import { SoundHostViewProvider } from './views/sound-host.view-provider';
 @injectable()
 export class PowerModeExtension {
 	//#region Public Static Fields
-	public static IDLE_TIME_MAX: number = 3;
+	public static IDLE_TIME_MAX: number = 5;
 	//#endregion
 
 	//#region Private Fields
@@ -28,8 +28,8 @@ export class PowerModeExtension {
 	private _comboCount: number = 0;
 	private _comboResponseTemplates: Array<{ sound: string, minCombo: number;}> = [
 		{ sound: 'quake/firstblood.wav', minCombo: 250 },
-		{ sound: 'quake/holyshit.wav', minCombo: 350 },
-		{ sound: 'quake/ludicrouskill.wav', minCombo: 500 }
+		{ sound: 'quake/holyshit.wav', minCombo: 500 },
+		{ sound: 'quake/ludicrouskill.wav', minCombo: 1000 }
 	];
 	private _comboResponses: Array<{ sound: string, minCombo: number; reached: boolean }> = [];
 	public get comboCount(): number {
@@ -56,13 +56,7 @@ export class PowerModeExtension {
 
 	//#region Public Methods
 	public async onInit(): Promise<void> {
-		/*if (!this.checkForMonkeyPatchExtension()) {
-			return;
-		}*/
-
 		this.startComboChecker();
-
-		this.cacheAndSendSoundsToView();
 
 		vscode.workspace.onDidChangeTextDocument(
 			(event) => this.onDidChangeTextDocument(event));
@@ -134,7 +128,7 @@ export class PowerModeExtension {
 		this.comboCount += filteredChangedText.length;
 
 		if (filteredChangedText.length > 0) {
-			this.playSound(`shots/laser-gun.wav`);
+			this.playSound(`shots/gun1.wav`);
 			this._hasUsedMagazine = true;
 			this._lastModified = new Date(Date.now());
 		} else if(/^[ \t]+$/g.test(changedText)) {
@@ -143,24 +137,22 @@ export class PowerModeExtension {
 			// Hit nothing sound
 			this._hasUsedMagazine = true;
 		} else if (this._hasUsedMagazine && filteredChangedText.length <= 0) {
-			console.log('RELOAD');
 			this.playSound(`shots/reload.wav`);
 			this._hasUsedMagazine = false;
 		}
 
-		if (this.comboCount && this.comboCount % 50 === 0) {
+		if (filteredChangedText.length > 30) {
 			const explosions = [
 				'explosion1.wav',
 				'explosion2.wav',
 				'explosion3.wav',
 				'explosion4.wav',
-				'explosion5.wav',
-				'explosion6.wav'
+				'explosion5.wav'
 			];
 
-			const farExplosion = explosions[Math.floor(Math.random()*explosions.length)];
+			const explosion = explosions[Math.floor(Math.random()*explosions.length)];
 
-			this.playSound(`shots/${farExplosion}`);
+			this.playSound(`shots/${explosion}`);
 		}
 
 		const nextResponse = this._comboResponses
@@ -260,6 +252,8 @@ export class PowerModeExtension {
 			Array.from(this._soundMap
 				.keys())
 				.map(sound => this.sendCachedSoundFile(sound)));
+
+		await this.playSound('quake/prepare.wav');
 	}
 
 	private async loadAndCacheSound(sound: string): Promise<SoundFile> {

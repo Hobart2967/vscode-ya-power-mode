@@ -2,29 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!--
-    Use a content security policy to only allow loading images from https or from our extension directory,
-    and only allow scripts that have a specific nonce.
-  -->
-  <!--<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src <%- webview.cspSource %>; script-src 'nonce-<%- nonce %>';">-->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
-  <!--<link href="<%- styleResetUri %>" rel="stylesheet">
-  <link href="<%- styleVSCodeUri %>" rel="stylesheet">
-  <link href="<%- styleMainUri %>" rel="stylesheet">-->
-  <style>
-    body {
-      font-family: 'Press Start 2P', cursive;
-      /*font-family: 'VT323', monospace;*/
-    }
-  </style>
   <title>Power Mode</title>
 </head>
 <body>
-  <h1 id="counter">Power Mode Active!</h1>
-  <a onclick="location.reload()">Nutz mich!</a>
+  <power-mode-app></power-mode-app>
   <script nonce="<%- nonce %>" src="<%- scriptUri %>"></script>
 </body>
 </html>
